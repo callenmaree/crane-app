@@ -1,12 +1,11 @@
 import streamlit as st
 import datetime
-from fpdf import FPDF
 
 # Set web page title and icon optimized for mobile views
 st.set_page_config(page_title="Crane Inspection", page_icon="🏗️", layout="centered")
 
 st.title("🏗️ Overhead Crane Condition Report")
-st.write("Complete the form on your mobile device. Click the button at the bottom to download a professional PDF report.")
+st.write("Complete the form on your mobile device. Click the button at the bottom to download your completed report.")
 
 # ---------------------------------------------------------
 # SECTION 1: ASSET & MANUFACTURER INFORMATION
@@ -81,88 +80,97 @@ recommendations = st.text_area(
 st.markdown("---")
 
 # ---------------------------------------------------------
-# CRASH-PROOF PDF GENERATION ENGINE
+# ZERO-DEPENDENCY HTML DOCUMENT GENERATION
 # ---------------------------------------------------------
-def generate_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # Document Header
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "OVERHEAD CRANE CONDITION REPORT", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
-    
-    # Metadata Box
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "1. ASSET & INSPECTION INFORMATION", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    
-    # Information fields
-    info_fields = [
-        ("Date of Inspection:", str(inspection_date)),
-        ("Inspector Name:", inspector),
-        ("Overall Status:", overall_status.upper()),
-        ("Manufacturer:", manufacturer),
-        ("Make / Model:", make_model),
-        ("Serial Number:", serial_no),
-        ("Crane ID / Tag No.:", crane_id),
-        ("Capacity (SWL):", capacity),
-        ("Facility Location:", location)
-    ]
-    
-    for label, val in info_fields:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(45, 6, label, border=0)
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 6, val if val else "N/A", border=0, new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.ln(10)
-    
-    # Component Table Header
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "2. COMPONENT STATUS BREAKDOWN", new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(60, 8, "Inspection Category", border=1, align="L")
-    pdf.cell(25, 8, "Status", border=1, align="C")
-    pdf.cell(105, 8, "Notes / Deficiencies", border=1, align="L", new_x="LMARGIN", new_y="NEXT")
-    
-    # Component Rows
-    pdf.set_font("Helvetica", "", 10)
+def generate_html():
+    # Build a clean, styled HTML report string
+    rows_html = ""
     for category, content in report_data.items():
-        pdf.cell(60, 8, category, border=1)
-        pdf.cell(25, 8, content["Status"], border=1, align="C")
+        status_color = "#28a745" if content["Status"] == "Pass" else ("#dc3545" if content["Status"] == "Fail" else "#6c757d")
         note_text = content["Notes"] if content["Notes"] else "No defects noted."
-        pdf.cell(105, 8, note_text, border=1, new_x="LMARGIN", new_y="NEXT")
+        rows_html += f"""
+        <tr>
+            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">{category}</td>
+            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: white; background-color: {status_color}; font-weight: bold;">{content["Status"]}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{note_text}</td>
+        </tr>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Crane Inspection Report</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 30px; color: #333; line-height: 1.6; }}
+            .header {{ text-align: center; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 10px; }}
+            .section {{ margin-bottom: 25px; }}
+            .section-title {{ font-size: 18px; font-weight: bold; background: #f4f4f4; padding: 5px 10px; border-left: 5px solid #007bff; margin-bottom: 15px; }}
+            .meta-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }}
+            .meta-item {{ font-size: 14px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th {{ background-color: #007bff; color: white; padding: 10px; text-align: left; }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h2>OVERHEAD CRANE CONDITION REPORT</h2>
+        </div>
         
-    pdf.ln(10)
-    
-    # Recommendations Section
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "3. ACTION ITEMS & RECOMMENDATIONS", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "", 10)
-    
-    rec_text = recommendations if recommendations.strip() else "No corrective actions listed."
-    pdf.multi_cell(0, 6, rec_text, border=1)
-    
-    # Footer Note
-    pdf.ln(15)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.cell(0, 5, "This document serves as an official equipment health log record.", align="C", new_x="LMARGIN", new_y="NEXT")
-    
-    # Output the PDF as bytes
-    return pdf.output()
+        <div class="section">
+            <div class="section-title">1. Asset & Inspection Information</div>
+            <div class="meta-grid">
+                <div class="meta-item"><strong>Date of Inspection:</strong> {inspection_date}</div>
+                <div class="meta-item"><strong>Inspector Name:</strong> {inspector if inspector else 'N/A'}</div>
+                <div class="meta-item"><strong>Overall Operational Status:</strong> {overall_status}</div>
+                <div class="meta-item"><strong>Manufacturer:</strong> {manufacturer if manufacturer else 'N/A'}</div>
+                <div class="meta-item"><strong>Make / Model:</strong> {make_model if make_model else 'N/A'}</div>
+                <div class="meta-item"><strong>Serial Number:</strong> {serial_no if serial_no else 'N/A'}</div>
+                <div class="meta-item"><strong>Crane ID / Tag No.:</strong> {crane_id if crane_id else 'N/A'}</div>
+                <div class="meta-item"><strong>Capacity (SWL):</strong> {capacity if capacity else 'N/A'}</div>
+                <div class="meta-item"><strong>Facility Location:</strong> {location if location else 'N/A'}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">2. Component Status Breakdown</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">Inspection Category</th>
+                        <th style="width: 15%; text-align: center;">Status</th>
+                        <th style="width: 50%;">Notes / Deficiencies</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows_html}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">3. Action Items & Recommendations</div>
+            <div style="border: 1px solid #ddd; padding: 15px; background: #fafafa; border-radius: 4px; font-style: italic;">
+                {recommendations if recommendations.strip() else 'No corrective actions listed.'}
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 50px; font-size: 12px; color: #777; font-style: italic;">
+            This document serves as an official equipment health log record.
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
 
 # ---------------------------------------------------------
 # MOBILE EXPORT BUTTON (WITH SERIAL NUMBER FILE NAMING)
 # ---------------------------------------------------------
-st.header("📋 Export Completed PDF")
+st.header("📋 Export Completed Report")
 
-# Clean up input text so they don't break phone file systems
 clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')).strip()
 clean_serial = "".join(x for x in serial_no if x.isalnum() or x in ('-', '_')).strip()
 
-# Create dynamic file name
 name_parts = ["Inspection"]
 if clean_id:
     name_parts.append(clean_id)
@@ -170,19 +178,15 @@ if clean_serial:
     name_parts.append(clean_serial)
 name_parts.append(str(inspection_date))
 
-mobile_filename = f"{'_'.join(name_parts)}.pdf"
+mobile_filename = f"{'_'.join(name_parts)}.html"
 
-# Generate the PDF file safely
-try:
-    pdf_bytes = generate_pdf()
-    
-    st.download_button(
-        label="📄 Download Official PDF Report",
-        data=bytes(pdf_bytes), # Ensure data is sent as raw bytes
-        file_name=mobile_filename,
-        mime="application/pdf",
-        use_container_width=True,
-        type="primary"
-    )
-except Exception as e:
-    st.error(f"Something went wrong: {e}. Please ensure all identifier fields are filled.")
+html_data = generate_html()
+
+st.download_button(
+    label="📄 Download Official Report Document",
+    data=html_data,
+    file_name=mobile_filename,
+    mime="text/html",
+    use_container_width=True,
+    type="primary"
+)
