@@ -85,17 +85,15 @@ recommendations = st.text_area(
 st.markdown("---")
 
 # ---------------------------------------------------------
-# REPORTLAB PDF GENERATION ENGINE (PERFECT APP COPY)
+# REPORTLAB PDF GENERATION ENGINE
 # ---------------------------------------------------------
 def generate_pdf():
     buffer = io.BytesIO()
-    # Total width of letter page with 36pt margins is 540 points
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
     story = []
     
     styles = getSampleStyleSheet()
     
-    # Matching App Typography Styles
     title_style = ParagraphStyle(
         'DocTitle',
         parent=styles['Heading1'],
@@ -103,7 +101,7 @@ def generate_pdf():
         fontSize=18,
         leading=22,
         textColor=colors.HexColor("#FFFFFF"),
-        alignment=1, # Centered
+        alignment=1,
     )
     
     section_style = ParagraphStyle(
@@ -120,13 +118,12 @@ def generate_pdf():
     text_normal = ParagraphStyle('TextNorm', parent=styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, textColor=colors.HexColor("#333333"))
     text_bold = ParagraphStyle('TextBold', parent=text_normal, fontName='Helvetica-Bold')
     
-    # Status Badge Text Styles
     status_hdr_style = ParagraphStyle('HdrTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#FFFFFF"), alignment=1)
     pass_style = ParagraphStyle('PassTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#1E7E34"), alignment=1)
     fail_style = ParagraphStyle('FailTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#BD2130"), alignment=1)
     na_style = ParagraphStyle('NaTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#545B62"), alignment=1)
 
-    # 1. Header Block (Matches the Dark Streamlit App Bar)
+    # Header Card
     header_table = Table([[Paragraph("🏗️ OVERHEAD CRANE CONDITION REPORT", title_style)]], colWidths=[540])
     header_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#0E1117")), 
@@ -137,9 +134,8 @@ def generate_pdf():
     story.append(header_table)
     story.append(Spacer(1, 10))
     
-    # 2. Asset Info Block (Structured Card View)
+    # Asset Info
     story.append(Paragraph("1. Asset & Manufacturing Information", section_style))
-    
     meta_rows = [
         [Paragraph("Manufacturer", text_bold), Paragraph(manufacturer if manufacturer else "—", text_normal),
          Paragraph("Date of Inspection", text_bold), Paragraph(str(inspection_date), text_normal)],
@@ -153,8 +149,7 @@ def generate_pdf():
          Paragraph("", text_normal), Paragraph("", text_normal)]
     ]
     
-    # Adjusted precisely to 540 total width
-    meta_table = Table(meta_rows, colWidths=[120, 150, 120, 150])
+    meta_table = Table(meta_rows, colWidths=[135, 135, 135, 135])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8F9FA")), 
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -167,9 +162,8 @@ def generate_pdf():
     story.append(meta_table)
     story.append(Spacer(1, 10))
     
-    # 3. Component Status Block (Matches the Main Form Elements)
+    # Checklist Matrix
     story.append(Paragraph("2. Component Status Breakdown", section_style))
-    
     table_data = [
         [Paragraph("Inspection Category", status_hdr_style), 
          Paragraph("Status", status_hdr_style), 
@@ -184,27 +178,23 @@ def generate_pdf():
         
         if status_val == "Pass":
             status_p = Paragraph("PASS", pass_style)
-            bg_color = colors.HexColor("#D4EDDA") # Soft App Green
+            bg_color = colors.HexColor("#D4EDDA")
         elif status_val == "Fail":
             status_p = Paragraph("FAIL", fail_style)
-            bg_color = colors.HexColor("#F8D7DA") # Soft App Red
+            bg_color = colors.HexColor("#F8D7DA")
         else:
             status_p = Paragraph("N/A", na_style)
-            bg_color = colors.HexColor("#E2E3E5") # Soft App Grey
+            bg_color = colors.HexColor("#E2E3E5")
             
         table_data.append([
             Paragraph(category, text_bold),
             status_p,
             Paragraph(note_val, text_normal)
         ])
-        
-        # Color code the cell backgrounds dynamically
         row_styles.append(('BACKGROUND', (1, idx), (1, idx), bg_color))
         idx += 1
         
-    # Grid column sizes mapped precisely to 540 total scale
-    checklist_table = Table(table_data, colWidths=[170, 70, 300])
-    
+    checklist_table = Table(table_data, colWidths=[160, 80, 300])
     base_styles = [
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#262730")), 
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -218,6 +208,17 @@ def generate_pdf():
     story.append(checklist_table)
     story.append(Spacer(1, 10))
     
-    # 4. Recommendations Block (Matches Custom Action Items Box)
+    # Recommendations Box
     story.append(Paragraph("3. Recommendations & Action Items", section_style))
-Use code with caution.rec_text = recommendations if recommendations.strip() else "No specific corrective actions or recommendations noted."rec_table = Table([[Paragraph(rec_text, text_normal)]], colWidths=[540])rec_table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFF3CD")), # App Warning Yellow Box Tint('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#FFEBAA")),('PADDING', (0,0), (-1,-1), 10),]))story.append(rec_table)# Footer Layout Notestory.append(Spacer(1, 25))story.append(Paragraph("This document serves as an official equipment health log record.", ParagraphStyle('Footer', parent=text_normal, alignment=1, fontSize=8, textColor=colors.HexColor("#6c757d"))))doc.build(story)buffer.seek(0)return buffer.getvalue()---------------------------------------------------------MOBILE EXPORT BUTTON (WITH SERIAL NUMBER FILE NAMING)---------------------------------------------------------st.header("📋 Export Completed PDF")clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '')).strip()clean_serial = "".join(x for x in serial_no if x.isalnum() or x in ('-', '')).strip()name_parts = ["Inspection"]if clean_id:name_parts.append(clean_id)if clean_serial:name_parts.append(clean_serial)name_parts.append(str(inspection_date))mobile_filename = f"{'_'.join(name_parts)}.pdf"try:pdf_bytes = generate_pdf()st.download_button(label="📄 Download Official PDF Report",data=pdf_bytes,file_name=mobile_filename,mime="application/pdf",use_container_width=True,type="primary")except Exception as e:st.error(f"Error packing document: {e}")
+    rec_text = recommendations if recommendations.strip() else "No specific corrective actions or recommendations noted."
+    
+    rec_table = Table([[Paragraph(rec_text, text_normal)]], colWidths=[540])
+    rec_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFF3CD")), 
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#FFEBAA")),
+        ('PADDING', (0,0), (-1,-1), 10),
+    ]))
+    story.append(rec_table)
+    
+    # Bottom Disclaimer
+    story.append(Spacer(1, 25))
