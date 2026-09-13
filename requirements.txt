@@ -1,2 +1,2 @@
 text
-fpdf2
+fpdf2==2.79
