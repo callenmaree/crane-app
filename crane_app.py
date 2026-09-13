@@ -1,12 +1,11 @@
 import streamlit as st
 import datetime
-from fpdf import FPDF
 
 # Set web page title and icon optimized for mobile views
 st.set_page_config(page_title="Crane Inspection", page_icon="🏗️", layout="centered")
 
 st.title("🏗️ Overhead Crane Condition Report")
-st.write("Complete the form on your mobile device. Click the button at the bottom to download a professional PDF report.")
+st.write("Complete the form on your mobile device. Click the button at the bottom to download your completed report file.")
 
 # ---------------------------------------------------------
 # SECTION 1: ASSET & MANUFACTURER INFORMATION
@@ -81,98 +80,52 @@ recommendations = st.text_area(
 st.markdown("---")
 
 # ---------------------------------------------------------
-# PDF GENERATION ENGINE
+# MOBILE GENERATION & DOWNLOAD ENGINE
 # ---------------------------------------------------------
-def generate_pdf():
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # Document Header
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "OVERHEAD CRANE CONDITION REPORT", ln=True, align="C")
-    pdf.ln(5)
-    
-    # Metadata Box
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "1. ASSET & INSPECTION INFORMATION", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    
-    # Information fields
-    info_fields = [
-        ("Date of Inspection:", str(inspection_date)),
-        ("Inspector Name:", inspector),
-        ("Overall Status:", overall_status.upper()),
-        ("Manufacturer:", manufacturer),
-        ("Make / Model:", make_model),
-        ("Serial Number:", serial_no),
-        ("Crane ID / Tag No.:", crane_id),
-        ("Capacity (SWL):", capacity),
-        ("Facility Location:", location)
-    ]
-    
-    for label, val in info_fields:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(45, 6, label, border=0)
-        pdf.set_font("Helvetica", "", 10)
-        pdf.cell(0, 6, val if val else "N/A", ln=True, border=0)
-    
-    pdf.ln(10)
-    
-    # Component Table Header
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "2. COMPONENT STATUS BREAKDOWN", ln=True)
-    
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(60, 8, "Inspection Category", border=1, align="L")
-    pdf.cell(25, 8, "Status", border=1, align="C")
-    pdf.cell(105, 8, "Notes / Deficiencies", border=1, ln=True, align="L")
-    
-    # Component Rows
-    pdf.set_font("Helvetica", "", 10)
-    for category, content in report_data.items():
-        pdf.cell(60, 8, category, border=1)
-        
-        # Color code status if you want later, keeping it simple for now
-        pdf.cell(25, 8, content["Status"], border=1, align="C")
-        
-        note_text = content["Notes"] if content["Notes"] else "No defects noted."
-        pdf.cell(105, 8, note_text, border=1, ln=True)
-        
-    pdf.ln(10)
-    
-    # Recommendations Section
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "3. ACTION ITEMS & RECOMMENDATIONS", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    
-    rec_text = recommendations if recommendations.strip() else "No corrective actions listed."
-    pdf.multi_cell(0, 6, rec_text, border=1)
-    
-    # Footer Note
-    pdf.ln(15)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.cell(0, 5, "This document serves as an official equipment health log record.", align="C")
-    
-    return pdf.output()
+st.header("📋 Export Completed Report")
 
-# ---------------------------------------------------------
-# MOBILE EXPORT BUTTON
-# ---------------------------------------------------------
-st.header("📋 Export Completed PDF")
+# Format the text data cleanly into a string variable
+text_content = f"""OVERHEAD CRANE CONDITION REPORT
+=====================================
+Date of Inspection : {inspection_date}
+Inspector Name : {inspector}
+Overall Status : {overall_status}
 
+1. ASSET & MANUFACTURING INFORMATION
+-------------------------------------
+Manufacturer : {manufacturer}
+Make / Model : {make_model}
+Serial Number : {serial_no}
+Crane ID / Tag No. : {crane_id}
+Capacity (SWL) : {capacity}
+Facility Location : {location}
+
+2. COMPONENT STATUS BREAKDOWN
+-------------------------------------\n"""
+
+for category, content in report_data.items():
+    text_content += f"[{content['Status']}] {category}\n"
+    if content['Notes']:
+        text_content += f" Notes: {content['Notes']}\n"
+        
+text_content += f"""\n3. ACTION ITEMS & RECOMMENDATIONS
+-------------------------------------
+{recommendations if recommendations.strip() else 'No corrective actions listed.'}
+
+=====================================
+End of Record File
+"""
+
+# Clean file name format for mobile file organization
 clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')) if crane_id else "Crane"
-mobile_filename = f"Inspection_{clean_id}_{inspection_date}.pdf"
+mobile_filename = f"Inspection_{clean_id}_{inspection_date}.txt"
 
-try:
-    pdf_bytes = generate_pdf()
-    
-    st.download_button(
-        label="📄 Download Official PDF Report",
-        data=pdf_bytes,
-        file_name=mobile_filename,
-        mime="application/pdf",
-        use_container_width=True,
-        type="primary"
-    )
-except Exception as e:
-    st.error("Filling out form data. Complete the required identification fields above.")
+# Native mobile download button
+st.download_button(
+    label="💾 Download Completed Report File",
+    data=text_content,
+    file_name=mobile_filename,
+    mime="text/plain",
+    use_container_width=True,
+    type="primary"
+)
