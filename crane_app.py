@@ -1,11 +1,16 @@
 import streamlit as st
 import datetime
+import io
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # Set web page title and icon optimized for mobile views
 st.set_page_config(page_title="Crane Inspection", page_icon="🏗️", layout="centered")
 
 st.title("🏗️ Overhead Crane Condition Report")
-st.write("Complete the form on your mobile device. Click the button at the bottom to download your completed report.")
+st.write("Complete the form on your mobile device. Click the button at the bottom to download a professional PDF report.")
 
 # ---------------------------------------------------------
 # SECTION 1: ASSET & MANUFACTURER INFORMATION
@@ -80,93 +85,127 @@ recommendations = st.text_area(
 st.markdown("---")
 
 # ---------------------------------------------------------
-# ZERO-DEPENDENCY HTML DOCUMENT GENERATION
+# REPORTLAB PDF GENERATION ENGINE
 # ---------------------------------------------------------
-def generate_html():
-    # Build a clean, styled HTML report string
-    rows_html = ""
+def generate_pdf():
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'DocTitle',
+        parent=styles['Heading1'],
+        fontName='Helvetica-Bold',
+        fontSize=18,
+        leading=22,
+        alignment=1, # Center
+        spaceAfter=15
+    )
+    
+    section_style = ParagraphStyle(
+        'SecTitle',
+        parent=styles['Heading2'],
+        fontName='Helvetica-Bold',
+        fontSize=12,
+        leading=16,
+        spaceBefore=10,
+        spaceAfter=10,
+        textColor=colors.HexColor("#007bff")
+    )
+    
+    normal_style = styles['Normal']
+    bold_style = ParagraphStyle('BoldText', parent=normal_style, fontName='Helvetica-Bold')
+
+    # Document Title
+    story.append(Paragraph("OVERHEAD CRANE CONDITION REPORT", title_style))
+    story.append(Spacer(1, 10))
+    
+    # Section 1: Asset Info
+    story.append(Paragraph("1. ASSET & INSPECTION INFORMATION", section_style))
+    
+    meta_data = [
+        [Paragraph("<b>Date of Inspection:</b>", normal_style), Paragraph(str(inspection_date), normal_style),
+         Paragraph("<b>Inspector Name:</b>", normal_style), Paragraph(inspector if inspector else "N/A", normal_style)],
+        [Paragraph("<b>Manufacturer:</b>", normal_style), Paragraph(manufacturer if manufacturer else "N/A", normal_style),
+         Paragraph("<b>Make / Model:</b>", normal_style), Paragraph(make_model if make_model else "N/A", normal_style)],
+        [Paragraph("<b>Serial Number:</b>", normal_style), Paragraph(serial_no if serial_no else "N/A", normal_style),
+         Paragraph("<b>Crane ID / Tag No:</b>", normal_style), Paragraph(crane_id if crane_id else "N/A", normal_style)],
+        [Paragraph("<b>Capacity (SWL):</b>", normal_style), Paragraph(capacity if capacity else "N/A", normal_style),
+         Paragraph("<b>Facility Location:</b>", normal_style), Paragraph(location if location else "N/A", normal_style)],
+        [Paragraph("<b>Overall Status:</b>", normal_style), Paragraph(f"<b>{overall_status.upper()}</b>", normal_style),
+         Paragraph("", normal_style), Paragraph("", normal_style)]
+    ]
+    
+    meta_table = Table(meta_data, colWidths=[110, 160, 110, 160])
+    meta_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    story.append(meta_table)
+    story.append(Spacer(1, 15))
+    
+    # Section 2: Checklist
+    story.append(Paragraph("2. COMPONENT STATUS BREAKDOWN", section_style))
+    
+    checklist_data = [
+        [Paragraph("<b>Inspection Category</b>", normal_style), 
+         Paragraph("<b>Status</b>", normal_style), 
+         Paragraph("<b>Notes / Deficiencies</b>", normal_style)]
+    ]
+    
     for category, content in report_data.items():
-        status_color = "#28a745" if content["Status"] == "Pass" else ("#dc3545" if content["Status"] == "Fail" else "#6c757d")
+        status_text = content["Status"]
         note_text = content["Notes"] if content["Notes"] else "No defects noted."
-        rows_html += f"""
-        <tr>
-            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">{category}</td>
-            <td style="padding: 10px; border: 1px solid #ddd; text-align: center; color: white; background-color: {status_color}; font-weight: bold;">{content["Status"]}</td>
-            <td style="padding: 10px; border: 1px solid #ddd;">{note_text}</td>
-        </tr>
-        """
-
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Crane Inspection Report</title>
-        <style>
-            body {{ font-family: Arial, sans-serif; margin: 30px; color: #333; line-height: 1.6; }}
-            .header {{ text-align: center; margin-bottom: 30px; border-bottom: 3px solid #333; padding-bottom: 10px; }}
-            .section {{ margin-bottom: 25px; }}
-            .section-title {{ font-size: 18px; font-weight: bold; background: #f4f4f4; padding: 5px 10px; border-left: 5px solid #007bff; margin-bottom: 15px; }}
-            .meta-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }}
-            .meta-item {{ font-size: 14px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th {{ background-color: #007bff; color: white; padding: 10px; text-align: left; }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h2>OVERHEAD CRANE CONDITION REPORT</h2>
-        </div>
+        checklist_data.append([
+            Paragraph(category, normal_style),
+            Paragraph(status_text, bold_style),
+            Paragraph(note_text, normal_style)
+        ])
         
-        <div class="section">
-            <div class="section-title">1. Asset & Inspection Information</div>
-            <div class="meta-grid">
-                <div class="meta-item"><strong>Date of Inspection:</strong> {inspection_date}</div>
-                <div class="meta-item"><strong>Inspector Name:</strong> {inspector if inspector else 'N/A'}</div>
-                <div class="meta-item"><strong>Overall Operational Status:</strong> {overall_status}</div>
-                <div class="meta-item"><strong>Manufacturer:</strong> {manufacturer if manufacturer else 'N/A'}</div>
-                <div class="meta-item"><strong>Make / Model:</strong> {make_model if make_model else 'N/A'}</div>
-                <div class="meta-item"><strong>Serial Number:</strong> {serial_no if serial_no else 'N/A'}</div>
-                <div class="meta-item"><strong>Crane ID / Tag No.:</strong> {crane_id if crane_id else 'N/A'}</div>
-                <div class="meta-item"><strong>Capacity (SWL):</strong> {capacity if capacity else 'N/A'}</div>
-                <div class="meta-item"><strong>Facility Location:</strong> {location if location else 'N/A'}</div>
-            </div>
-        </div>
-
-        <div class="section">
-            <div class="section-title">2. Component Status Breakdown</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 35%;">Inspection Category</th>
-                        <th style="width: 15%; text-align: center;">Status</th>
-                        <th style="width: 50%;">Notes / Deficiencies</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows_html}
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <div class="section-title">3. Action Items & Recommendations</div>
-            <div style="border: 1px solid #ddd; padding: 15px; background: #fafafa; border-radius: 4px; font-style: italic;">
-                {recommendations if recommendations.strip() else 'No corrective actions listed.'}
-            </div>
-        </div>
-
-        <div style="text-align: center; margin-top: 50px; font-size: 12px; color: #777; font-style: italic;">
-            This document serves as an official equipment health log record.
-        </div>
-    </body>
-    </html>
-    """
-    return html_content
+    checklist_table = Table(checklist_data, colWidths=[160, 60, 320])
+    checklist_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#007bff")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (1,0), (1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+    ]))
+    # Quick fix for headers color inside table paragraphs
+    for i in range(3):
+        checklist_data[0][i].style.textColor = colors.white
+        
+    story.append(checklist_table)
+    story.append(Spacer(1, 15))
+    
+    # Section 3: Recommendations
+    story.append(Paragraph("3. ACTION ITEMS & RECOMMENDATIONS", section_style))
+    rec_text = recommendations if recommendations.strip() else "No corrective actions listed."
+    
+    rec_table = Table([[Paragraph(rec_text, normal_style)]], colWidths=[540])
+    rec_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#fafafa")),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.grey),
+        ('PADDING', (0,0), (-1,-1), 12),
+    ]))
+    story.append(rec_table)
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    story.append(Paragraph("<i>This document serves as an official equipment health log record.</i>", ParagraphStyle('Footer', parent=normal_style, alignment=1, fontSize=9)))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 # ---------------------------------------------------------
 # MOBILE EXPORT BUTTON (WITH SERIAL NUMBER FILE NAMING)
 # ---------------------------------------------------------
-st.header("📋 Export Completed Report")
+st.header("📋 Export Completed PDF")
 
 clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')).strip()
 clean_serial = "".join(x for x in serial_no if x.isalnum() or x in ('-', '_')).strip()
@@ -178,15 +217,18 @@ if clean_serial:
     name_parts.append(clean_serial)
 name_parts.append(str(inspection_date))
 
-mobile_filename = f"{'_'.join(name_parts)}.html"
+mobile_filename = f"{'_'.join(name_parts)}.pdf"
 
-html_data = generate_html()
-
-st.download_button(
-    label="📄 Download Official Report Document",
-    data=html_data,
-    file_name=mobile_filename,
-    mime="text/html",
-    use_container_width=True,
-    type="primary"
-)
+try:
+    pdf_bytes = generate_pdf()
+    
+    st.download_button(
+        label="📄 Download Official PDF Report",
+        data=pdf_bytes,
+        file_name=mobile_filename,
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary"
+    )
+except Exception as e:
+    st.error(f"Waiting for form entries... Fill out identifying information sections.")
