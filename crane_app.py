@@ -1,10 +1,6 @@
 import streamlit as st
 import datetime
-import io
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+from fpdf import FPDF
 
 # Set web page title and icon optimized for mobile views
 st.set_page_config(page_title="Crane Inspection", page_icon="🏗️", layout="centered")
@@ -85,140 +81,106 @@ recommendations = st.text_area(
 st.markdown("---")
 
 # ---------------------------------------------------------
-# REPORTLAB PDF GENERATION ENGINE
+# PDF GENERATION ENGINE
 # ---------------------------------------------------------
 def generate_pdf():
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-    story = []
+    pdf = FPDF()
+    pdf.add_page()
     
-    styles = getSampleStyleSheet()
+    # Document Header
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "OVERHEAD CRANE CONDITION REPORT", ln=True, align="C")
+    pdf.ln(5)
     
-    title_style = ParagraphStyle(
-        'DocTitle',
-        parent=styles['Heading1'],
-        fontName='Helvetica-Bold',
-        fontSize=18,
-        leading=22,
-        textColor=colors.HexColor("#FFFFFF"),
-        alignment=1,
-    )
+    # Metadata Box
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "1. ASSET & INSPECTION INFORMATION", ln=True)
+    pdf.set_font("Helvetica", "", 10)
     
-    section_style = ParagraphStyle(
-        'SecTitle',
-        parent=styles['Heading2'],
-        fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=16,
-        spaceBefore=15,
-        spaceAfter=8,
-        textColor=colors.HexColor("#0F1117")
-    )
-    
-    text_normal = ParagraphStyle('TextNorm', parent=styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, textColor=colors.HexColor("#333333"))
-    text_bold = ParagraphStyle('TextBold', parent=text_normal, fontName='Helvetica-Bold')
-    
-    status_hdr_style = ParagraphStyle('HdrTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#FFFFFF"), alignment=1)
-    pass_style = ParagraphStyle('PassTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#1E7E34"), alignment=1)
-    fail_style = ParagraphStyle('FailTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#BD2130"), alignment=1)
-    na_style = ParagraphStyle('NaTxt', parent=text_normal, fontName='Helvetica-Bold', textColor=colors.HexColor("#545B62"), alignment=1)
-
-    # Header Card
-    header_table = Table([[Paragraph("🏗️ OVERHEAD CRANE CONDITION REPORT", title_style)]], colWidths=[540])
-    header_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#0E1117")), 
-        ('PADDING', (0,0), (-1,-1), 14),
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-    ]))
-    story.append(header_table)
-    story.append(Spacer(1, 10))
-    
-    # Asset Info
-    story.append(Paragraph("1. Asset & Manufacturing Information", section_style))
-    meta_rows = [
-        [Paragraph("Manufacturer", text_bold), Paragraph(manufacturer if manufacturer else "—", text_normal),
-         Paragraph("Date of Inspection", text_bold), Paragraph(str(inspection_date), text_normal)],
-        [Paragraph("Make / Model", text_bold), Paragraph(make_model if make_model else "—", text_normal),
-         Paragraph("Inspector Name", text_bold), Paragraph(inspector if inspector else "—", text_normal)],
-        [Paragraph("Serial Number", text_bold), Paragraph(serial_no if serial_no else "—", text_normal),
-         Paragraph("Crane ID / Tag No.", text_bold), Paragraph(crane_id if crane_id else "—", text_normal)],
-        [Paragraph("Capacity (SWL)", text_bold), Paragraph(capacity if capacity else "—", text_normal),
-         Paragraph("Facility Location", text_bold), Paragraph(location if location else "—", text_normal)],
-        [Paragraph("Overall Status", text_bold), Paragraph(f"<b>{overall_status.upper()}</b>", text_bold),
-         Paragraph("", text_normal), Paragraph("", text_normal)]
+    # Information fields
+    info_fields = [
+        ("Date of Inspection:", str(inspection_date)),
+        ("Inspector Name:", inspector),
+        ("Overall Status:", overall_status.upper()),
+        ("Manufacturer:", manufacturer),
+        ("Make / Model:", make_model),
+        ("Serial Number:", serial_no),
+        ("Crane ID / Tag No.:", crane_id),
+        ("Capacity (SWL):", capacity),
+        ("Facility Location:", location)
     ]
     
-    meta_table = Table(meta_rows, colWidths=[135, 135, 135, 135])
-    meta_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F8F9FA")), 
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E0E0E0")),
-        ('TOPPADDING', (0,0), (-1,-1), 6),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-        ('RIGHTPADDING', (0,0), (-1,-1), 8),
-    ]))
-    story.append(meta_table)
-    story.append(Spacer(1, 10))
+    for label, val in info_fields:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(45, 6, label, border=0)
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 6, val if val else "N/A", ln=True, border=0)
     
-    # Checklist Matrix
-    story.append(Paragraph("2. Component Status Breakdown", section_style))
-    table_data = [
-        [Paragraph("Inspection Category", status_hdr_style), 
-         Paragraph("Status", status_hdr_style), 
-         Paragraph("Notes / Deficiencies", status_hdr_style)]
-    ]
+    pdf.ln(10)
     
-    row_styles = []
-    idx = 1
+    # Component Table Header
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "2. COMPONENT STATUS BREAKDOWN", ln=True)
+    
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(60, 8, "Inspection Category", border=1, align="L")
+    pdf.cell(25, 8, "Status", border=1, align="C")
+    pdf.cell(105, 8, "Notes / Deficiencies", border=1, ln=True, align="L")
+    
+    # Component Rows
+    pdf.set_font("Helvetica", "", 10)
     for category, content in report_data.items():
-        status_val = content["Status"]
-        note_val = content["Notes"] if content["Notes"] else "No defects noted."
+        pdf.cell(60, 8, category, border=1)
+        pdf.cell(25, 8, content["Status"], border=1, align="C")
+        note_text = content["Notes"] if content["Notes"] else "No defects noted."
+        pdf.cell(105, 8, note_text, border=1, ln=True)
         
-        if status_val == "Pass":
-            status_p = Paragraph("PASS", pass_style)
-            bg_color = colors.HexColor("#D4EDDA")
-        elif status_val == "Fail":
-            status_p = Paragraph("FAIL", fail_style)
-            bg_color = colors.HexColor("#F8D7DA")
-        else:
-            status_p = Paragraph("N/A", na_style)
-            bg_color = colors.HexColor("#E2E3E5")
-            
-        table_data.append([
-            Paragraph(category, text_bold),
-            status_p,
-            Paragraph(note_val, text_normal)
-        ])
-        row_styles.append(('BACKGROUND', (1, idx), (1, idx), bg_color))
-        idx += 1
-        
-    checklist_table = Table(table_data, colWidths=[160, 80, 300])
-    base_styles = [
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#262730")), 
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#D3D3D3")),
-        ('TOPPADDING', (0,0), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 8),
-        ('LEFTPADDING', (0,0), (-1,-1), 8),
-    ]
-    base_styles.extend(row_styles)
-    checklist_table.setStyle(TableStyle(base_styles))
-    story.append(checklist_table)
-    story.append(Spacer(1, 10))
+    pdf.ln(10)
     
-    # Recommendations Box
-    story.append(Paragraph("3. Recommendations & Action Items", section_style))
-    rec_text = recommendations if recommendations.strip() else "No specific corrective actions or recommendations noted."
+    # Recommendations Section
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "3. ACTION ITEMS & RECOMMENDATIONS", ln=True)
+    pdf.set_font("Helvetica", "", 10)
     
-    rec_table = Table([[Paragraph(rec_text, text_normal)]], colWidths=[540])
-    rec_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#FFF3CD")), 
-        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor("#FFEBAA")),
-        ('PADDING', (0,0), (-1,-1), 10),
-    ]))
-    story.append(rec_table)
+    rec_text = recommendations if recommendations.strip() else "No corrective actions listed."
+    pdf.multi_cell(0, 6, rec_text, border=1)
     
-    # Bottom Disclaimer
-    story.append(Spacer(1, 25))
+    # Footer Note
+    pdf.ln(15)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.cell(0, 5, "This document serves as an official equipment health log record.", align="C")
+    
+    return pdf.output()
+
+# ---------------------------------------------------------
+# MOBILE EXPORT BUTTON (WITH SERIAL NUMBER FILE NAMING)
+# ---------------------------------------------------------
+st.header("📋 Export Completed PDF")
+
+# Clean up input text so they don't break phone file systems (removes spaces/special characters)
+clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')).strip()
+clean_serial = "".join(x for x in serial_no if x.isalnum() or x in ('-', '_')).strip()
+
+# Create dynamic name: e.g., "Inspection_CRANE-A_SN-12345_2026-09-13.pdf"
+name_parts = ["Inspection"]
+if clean_id:
+    name_parts.append(clean_id)
+if clean_serial:
+    name_parts.append(clean_serial)
+name_parts.append(str(inspection_date))
+
+mobile_filename = f"{'_'.join(name_parts)}.pdf"
+
+try:
+    pdf_bytes = generate_pdf()
+    
+    st.download_button(
+        label="📄 Download Official PDF Report",
+        data=pdf_bytes,
+        file_name=mobile_filename,
+        mime="application/pdf",
+        use_container_width=True,
+        type="primary"
+    )
+except Exception as e:
+    st.error("Generating form options. Make sure to input values above.")
