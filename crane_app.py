@@ -131,10 +131,7 @@ def generate_pdf():
     pdf.set_font("Helvetica", "", 10)
     for category, content in report_data.items():
         pdf.cell(60, 8, category, border=1)
-        
-        # Color code status if you want later, keeping it simple for now
         pdf.cell(25, 8, content["Status"], border=1, align="C")
-        
         note_text = content["Notes"] if content["Notes"] else "No defects noted."
         pdf.cell(105, 8, note_text, border=1, ln=True)
         
@@ -156,12 +153,23 @@ def generate_pdf():
     return pdf.output()
 
 # ---------------------------------------------------------
-# MOBILE EXPORT BUTTON
+# MOBILE EXPORT BUTTON (WITH SERIAL NUMBER FILE NAMING)
 # ---------------------------------------------------------
 st.header("📋 Export Completed PDF")
 
-clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')) if crane_id else "Crane"
-mobile_filename = f"Inspection_{clean_id}_{inspection_date}.pdf"
+# Clean up input text so they don't break phone file systems (removes spaces/special characters)
+clean_id = "".join(x for x in crane_id if x.isalnum() or x in ('-', '_')).strip()
+clean_serial = "".join(x for x in serial_no if x.isalnum() or x in ('-', '_')).strip()
+
+# Create dynamic name: e.g., "Inspection_CRANE-A_SN-12345_2026-09-13.pdf"
+name_parts = ["Inspection"]
+if clean_id:
+    name_parts.append(clean_id)
+if clean_serial:
+    name_parts.append(clean_serial)
+name_parts.append(str(inspection_date))
+
+mobile_filename = f"{'_'.join(name_parts)}.pdf"
 
 try:
     pdf_bytes = generate_pdf()
@@ -175,4 +183,4 @@ try:
         type="primary"
     )
 except Exception as e:
-    st.error("Filling out form data. Complete the required identification fields above.")
+    st.error("Generating form options. Make sure to input values above.")
